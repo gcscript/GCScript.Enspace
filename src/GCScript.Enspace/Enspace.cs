@@ -1,8 +1,6 @@
 ﻿using GCScript.Enspace.Enums;
-using GCScript.Enspace.Models;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text;
 
 namespace GCScript.Enspace;
 public class Enspace(EnMode mode, string username, string password) {
@@ -13,20 +11,19 @@ public class Enspace(EnMode mode, string username, string password) {
 	};
 
 	public async Task<string> GetToken() {
-		var enEndpointOptions = new EnEndpointOptions { Path = "/auth/local" };
 		var enAuthRequest = new EnAuthRequest { identifier = username, password = password };
-		var result = await EnPostAsJsonAsync<EnAuthRequest, EnAuthResponse>(enEndpointOptions, enAuthRequest, "");
+		var result = await EnPostAsJsonAsync<EnAuthRequest, EnAuthResponse>("/auth/local", enAuthRequest, "");
 		if (result is null || string.IsNullOrWhiteSpace(result.jwt)) { throw new Exception("Failed to authenticate with Enspace"); }
 		return result.jwt;
 	}
 
-	public async Task<TResponse?> EnGetAsync<TResponse>(EnEndpointOptions options, string token) {
+	public async Task<TResponse?> EnGetAsync<TResponse>(string endpoint, string token) {
 		using var client = new HttpClient();
 		client.BaseAddress = new Uri(_baseUrl);
 		if (!string.IsNullOrWhiteSpace(token)) { client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token); }
 		client.DefaultRequestHeaders.Add("Enl-Token", "enspace4c4c");
 
-		var endpoint = EnEndpointBuilder(options);
+		endpoint = endpoint.TrimStart('/');
 		var response = await client.GetAsync($"/{endpoint}");
 
 		if (response.IsSuccessStatusCode) {
@@ -37,19 +34,19 @@ public class Enspace(EnMode mode, string username, string password) {
 		}
 	}
 
-	public async Task<TResponse?> EnPostAsJsonAsync<TRequest, TResponse>(EnEndpointOptions options, TRequest model, string token) {
+	public async Task<TResponse?> EnPostAsJsonAsync<TRequest, TResponse>(string endpoint, TRequest model, string token) {
 		using var client = new HttpClient();
 		client.BaseAddress = new Uri(_baseUrl);
 		if (!string.IsNullOrWhiteSpace(token)) { client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token); }
 		client.DefaultRequestHeaders.Add("Enl-Token", "enspace4c4c");
 
-		var endpoint = EnEndpointBuilder(options);
+		endpoint = endpoint.TrimStart('/');
 		var response = await client.PostAsJsonAsync($"/{endpoint}", model);
 
 		return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<TResponse>() : default;
 	}
 
-	public async Task<TResponse?> EnFileUpload<TResponse>(EnEndpointOptions options, List<string> filePathList, string path, TimeSpan timeout, string token) {
+	public async Task<TResponse?> EnFileUpload<TResponse>(string endpoint, List<string> filePathList, string path, TimeSpan timeout, string token) {
 		if (filePathList.Count == 0) { throw new Exception("No files to upload"); }
 
 		using var client = new HttpClient();
@@ -69,26 +66,12 @@ public class Enspace(EnMode mode, string username, string password) {
 			multipartContent.Add(content: fileContent, name: "files", fileName: Path.GetFileName(filePath));
 		}
 
-		var endpoint = EnEndpointBuilder(options);
+		endpoint = endpoint.TrimStart('/');
 		var response = await client.PostAsync($"/{endpoint}", multipartContent);
 		var responseString = await response.Content.ReadAsStringAsync();
 
 		return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<TResponse>() : default;
 
-	}
-
-	private string EnEndpointBuilder(EnEndpointOptions options) {
-		var path = options.Path.TrimStart('/');
-		var sbQueryParameters = new StringBuilder();
-		if (options.QueryParameters.Count > 0) {
-			path = path.TrimEnd('/');
-			sbQueryParameters.Append('?');
-			foreach (var qp in options.QueryParameters) {
-				sbQueryParameters.Append($"{qp}&");
-			}
-			sbQueryParameters.Remove(sbQueryParameters.Length - 1, 1);
-		}
-		return $"{path}{sbQueryParameters}";
 	}
 }
 file class EnAuthResponse { public string? jwt { get; set; } }

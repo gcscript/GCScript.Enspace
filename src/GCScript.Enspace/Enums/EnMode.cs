@@ -1,5 +1,2 @@
 ﻿namespace GCScript.Enspace.Enums;
-public enum EnMode {
-	Production,
-	Development
-}
+public enum EnMode { Production, Development }
