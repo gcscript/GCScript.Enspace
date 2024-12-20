@@ -1,58 +1,100 @@
-﻿using GCScript.Enspace.Enums;
-using System.Net.Http.Headers;
+﻿using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
 
 namespace GCScript.Enspace;
-public class Enspace(EnMode mode, string username, string password) {
-	private string _baseUrl = mode switch {
-		EnMode.Production => "https://api.enspace.io",
-		EnMode.Development => "https://api.stage.enspace.io",
-		_ => throw new Exception("Invalid EnMode")
-	};
+public class Enspace {
+	private readonly string _username;
+	private readonly string _password;
+	private readonly string _baseUrl;
 
-	public async Task<string> GetToken() {
-		var enAuthRequest = new EnAuthRequest { identifier = username, password = password };
-		var result = await EnPostAsJsonAsync<EnAuthRequest, EnAuthResponse>("/auth/local", enAuthRequest, "");
+	private string _token = string.Empty;
+	private DateTime _tokenExpiryTime = DateTime.MinValue;
+
+	private HttpClient _httpClient;
+
+	public Enspace(string username, string password, string baseUrl = "https://api.enspace.io") {
+		if (string.IsNullOrWhiteSpace(username)) {
+			throw new ArgumentException("Username cannot be null or empty.", nameof(username));
+		}
+
+		if (string.IsNullOrWhiteSpace(password)) {
+			throw new ArgumentException("Password cannot be null or empty.", nameof(password));
+		}
+
+		if (string.IsNullOrWhiteSpace(baseUrl)) {
+			throw new ArgumentException("Base URL cannot be null or empty.", nameof(baseUrl));
+		}
+
+		_username = username;
+		_password = password;
+		_baseUrl = baseUrl.TrimEnd('/');
+		_httpClient = new HttpClient { BaseAddress = new Uri(_baseUrl), };
+		_httpClient.DefaultRequestHeaders.Add("Enl-Token", "enspace4c4c");
+	}
+
+	private async Task<string> GetTokenAsync() {
+		if (string.IsNullOrWhiteSpace(_token) || DateTime.UtcNow >= _tokenExpiryTime) {
+			await RefreshTokenAsync().ConfigureAwait(false);
+		}
+		return _token;
+	}
+
+	private async Task RefreshTokenAsync() {
+		var enAuthRequest = new EnAuthRequest { identifier = _username, password = _password };
+		var response = await _httpClient.PostAsync("/auth/local", new StringContent(JsonSerializer.Serialize(enAuthRequest), Encoding.UTF8, "application/json"));
+		response.EnsureSuccessStatusCode();
+		var result = await response.Content.ReadFromJsonAsync<EnAuthResponse>().ConfigureAwait(false);
 		if (result is null || string.IsNullOrWhiteSpace(result.jwt)) { throw new Exception("Failed to authenticate with Enspace"); }
-		return result.jwt;
+
+		_token = result.jwt;
+		_tokenExpiryTime = DateTime.UtcNow.AddHours(1);
+		_httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _token);
 	}
 
-	public async Task<TResponse?> EnGetAsync<TResponse>(string endpoint, string token) {
-		using var client = new HttpClient();
-		client.BaseAddress = new Uri(_baseUrl);
-		if (!string.IsNullOrWhiteSpace(token)) { client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token); }
-		client.DefaultRequestHeaders.Add("Enl-Token", "enspace4c4c");
-
+	public async Task<TResponse?> GetAsync<TResponse>(string endpoint, bool throwException = true) {
 		endpoint = endpoint.TrimStart('/');
-		var response = await client.GetAsync($"/{endpoint}");
-
-		if (response.IsSuccessStatusCode) {
-			return await response.Content.ReadFromJsonAsync<TResponse>();
-		}
-		else {
-			return default;
-		}
-	}
-
-	public async Task<TResponse?> EnPostAsJsonAsync<TRequest, TResponse>(string endpoint, TRequest model, string token) {
-		using var client = new HttpClient();
-		client.BaseAddress = new Uri(_baseUrl);
-		if (!string.IsNullOrWhiteSpace(token)) { client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token); }
-		client.DefaultRequestHeaders.Add("Enl-Token", "enspace4c4c");
-
-		endpoint = endpoint.TrimStart('/');
-		var response = await client.PostAsJsonAsync($"/{endpoint}", model);
-
+		await GetTokenAsync();
+		var response = await _httpClient.GetAsync($"/{endpoint}");
+		if (throwException) { response.EnsureSuccessStatusCode(); }
 		return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<TResponse>() : default;
 	}
 
-	public async Task<TResponse?> EnFileUpload<TResponse>(string endpoint, List<string> filePathList, string path, TimeSpan timeout, string token) {
-		if (filePathList.Count == 0) { throw new Exception("No files to upload"); }
+	public async Task<TResponse?> PostAsync<TRequest, TResponse>(string endpoint, TRequest model, bool throwException = true) {
+		endpoint = endpoint.TrimStart('/');
+		await GetTokenAsync();
+		var response = await _httpClient.PostAsync($"/{endpoint}", new StringContent(JsonSerializer.Serialize(model), Encoding.UTF8, "application/json"));
+		if (throwException) { response.EnsureSuccessStatusCode(); }
+		return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<TResponse>() : default;
+	}
 
-		using var client = new HttpClient();
-		client.BaseAddress = new Uri(_baseUrl);
-		client.Timeout = timeout;
-		client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+	public async Task<string?> PostAsync<TRequest>(string endpoint, TRequest model, bool throwException = true) {
+		endpoint = endpoint.TrimStart('/');
+		await GetTokenAsync();
+		var response = await _httpClient.PostAsync($"/{endpoint}", new StringContent(JsonSerializer.Serialize(model), Encoding.UTF8, "application/json"));
+		if (throwException) { response.EnsureSuccessStatusCode(); }
+		return response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync() : default;
+	}
+
+	public async Task<TResponse?> PutAsync<TRequest, TResponse>(string endpoint, TRequest model, bool throwException = true) {
+		endpoint = endpoint.TrimStart('/');
+		await GetTokenAsync();
+		var response = await _httpClient.PutAsync($"/{endpoint}", new StringContent(JsonSerializer.Serialize(model), Encoding.UTF8, "application/json"));
+		if (throwException) { response.EnsureSuccessStatusCode(); }
+		return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<TResponse>() : default;
+	}
+
+	public async Task<string?> PutAsync<TRequest>(string endpoint, TRequest model, bool throwException = true) {
+		endpoint = endpoint.TrimStart('/');
+		await GetTokenAsync();
+		var response = await _httpClient.PutAsync($"/{endpoint}", new StringContent(JsonSerializer.Serialize(model), Encoding.UTF8, "application/json"));
+		if (throwException) { response.EnsureSuccessStatusCode(); }
+		return response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync() : default;
+	}
+
+	public async Task<TResponse?> FileUploadAsync<TResponse>(string endpoint, List<string> filePathList, string path, TimeSpan timeout, bool throwException = true) {
+		if (filePathList.Count == 0) { throw new Exception("No files to upload"); }
 
 		using var multipartContent = new MultipartFormDataContent {
 			{ new StringContent(path), "path" }
@@ -66,12 +108,14 @@ public class Enspace(EnMode mode, string username, string password) {
 			multipartContent.Add(content: fileContent, name: "files", fileName: Path.GetFileName(filePath));
 		}
 
+		_httpClient.Timeout = timeout;
 		endpoint = endpoint.TrimStart('/');
-		var response = await client.PostAsync($"/{endpoint}", multipartContent);
+		await GetTokenAsync();
+		var response = await _httpClient.PostAsync($"/{endpoint}", multipartContent);
+		if (throwException) { response.EnsureSuccessStatusCode(); }
 		var responseString = await response.Content.ReadAsStringAsync();
 
 		return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<TResponse>() : default;
-
 	}
 }
 file class EnAuthResponse { public string? jwt { get; set; } }
