@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Headers;
+﻿using GCScript.Enspace.Models;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -51,6 +52,10 @@ public class Enspace {
 		_token = result.jwt;
 		_tokenExpiryTime = DateTime.UtcNow.AddHours(1);
 		_httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _token);
+	}
+
+	public async Task<WorkspacesResponse?> ChangeWorkspace(int workspaceId, bool throwException = true) {
+		return await PostAsync<WorkspacesRequest, WorkspacesResponse>("/workspaces/change", new WorkspacesRequest { Workspace = workspaceId }, throwException);
 	}
 
 	public async Task<TResponse?> GetAsync<TResponse>(string endpoint, bool throwException = true) {

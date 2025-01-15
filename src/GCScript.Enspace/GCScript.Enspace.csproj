@@ -14,7 +14,7 @@
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
 		<PackageTags>GCScript Enspace</PackageTags>
-		<PackageVersion>1.1.1</PackageVersion>
+		<PackageVersion>1.1.2</PackageVersion>
 		<RepositoryUrl>https://github.com/gcscript/GCScript.Enspace</RepositoryUrl>
 	</PropertyGroup>
 
