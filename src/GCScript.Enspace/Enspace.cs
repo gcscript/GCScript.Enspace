@@ -74,7 +74,12 @@ public class Enspace {
 		endpoint = endpoint.TrimStart('/');
 		await GetTokenAsync();
 		var response = await _httpClient.GetAsync($"/{endpoint}");
-		if (throwException) { response.EnsureSuccessStatusCode(); }
+		if (throwException) {
+			if (!response.IsSuccessStatusCode) {
+				var content = await response.Content.ReadAsStringAsync();
+				throw new Exception($"Failed to get from Enspace.\nStatusCode: {response.StatusCode}\nReasonPhrase: {response.ReasonPhrase}\nContent: {content}");
+			}
+		}
 		return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<TResponse>() : default;
 	}
 
@@ -82,7 +87,12 @@ public class Enspace {
 		endpoint = endpoint.TrimStart('/');
 		await GetTokenAsync();
 		var response = await _httpClient.PostAsync($"/{endpoint}", new StringContent(JsonSerializer.Serialize(model), Encoding.UTF8, "application/json"));
-		if (throwException) { response.EnsureSuccessStatusCode(); }
+		if (throwException) {
+			if (!response.IsSuccessStatusCode) {
+				var content = await response.Content.ReadAsStringAsync();
+				throw new Exception($"Failed to post to Enspace.\nStatusCode: {response.StatusCode}\nReasonPhrase: {response.ReasonPhrase}\nContent: {content}");
+			}
+		}
 		return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<TResponse>() : default;
 	}
 
@@ -90,7 +100,12 @@ public class Enspace {
 		endpoint = endpoint.TrimStart('/');
 		await GetTokenAsync();
 		var response = await _httpClient.PostAsync($"/{endpoint}", new StringContent(JsonSerializer.Serialize(model), Encoding.UTF8, "application/json"));
-		if (throwException) { response.EnsureSuccessStatusCode(); }
+		if (throwException) {
+			if (!response.IsSuccessStatusCode) {
+				var content = await response.Content.ReadAsStringAsync();
+				throw new Exception($"Failed to post to Enspace.\nStatusCode: {response.StatusCode}\nReasonPhrase: {response.ReasonPhrase}\nContent: {content}");
+			}
+		}
 		return response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync() : default;
 	}
 
@@ -98,7 +113,12 @@ public class Enspace {
 		endpoint = endpoint.TrimStart('/');
 		await GetTokenAsync();
 		var response = await _httpClient.PutAsync($"/{endpoint}", new StringContent(JsonSerializer.Serialize(model), Encoding.UTF8, "application/json"));
-		if (throwException) { response.EnsureSuccessStatusCode(); }
+		if (throwException) {
+			if (!response.IsSuccessStatusCode) {
+				var content = await response.Content.ReadAsStringAsync();
+				throw new Exception($"Failed to put to Enspace.\nStatusCode: {response.StatusCode}\nReasonPhrase: {response.ReasonPhrase}\nContent: {content}");
+			}
+		}
 		return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<TResponse>() : default;
 	}
 
@@ -106,7 +126,12 @@ public class Enspace {
 		endpoint = endpoint.TrimStart('/');
 		await GetTokenAsync();
 		var response = await _httpClient.PutAsync($"/{endpoint}", new StringContent(JsonSerializer.Serialize(model), Encoding.UTF8, "application/json"));
-		if (throwException) { response.EnsureSuccessStatusCode(); }
+		if (throwException) {
+			if (!response.IsSuccessStatusCode) {
+				var content = await response.Content.ReadAsStringAsync();
+				throw new Exception($"Failed to put to Enspace.\nStatusCode: {response.StatusCode}\nReasonPhrase: {response.ReasonPhrase}\nContent: {content}");
+			}
+		}
 		return response.IsSuccessStatusCode ? await response.Content.ReadAsStringAsync() : default;
 	}
 
@@ -129,7 +154,12 @@ public class Enspace {
 		endpoint = endpoint.TrimStart('/');
 		await GetTokenAsync();
 		var response = await _httpClient.PostAsync($"/{endpoint}", multipartContent);
-		if (throwException) { response.EnsureSuccessStatusCode(); }
+		if (throwException) {
+			if (!response.IsSuccessStatusCode) {
+				var content = await response.Content.ReadAsStringAsync();
+				throw new Exception($"Failed to upload file to Enspace.\nStatusCode: {response.StatusCode}\nReasonPhrase: {response.ReasonPhrase}\nContent: {content}");
+			}
+		}
 		var responseString = await response.Content.ReadAsStringAsync();
 
 		return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<TResponse>() : default;
