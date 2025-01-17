@@ -44,10 +44,22 @@ public class Enspace {
 
 	private async Task RefreshTokenAsync() {
 		var enAuthRequest = new EnAuthRequest { identifier = _username, password = _password };
-		var response = await _httpClient.PostAsync("/auth/local", new StringContent(JsonSerializer.Serialize(enAuthRequest), Encoding.UTF8, "application/json"));
-		response.EnsureSuccessStatusCode();
+
+		_httpClient.DefaultRequestHeaders.Remove("Cookie");
+		_httpClient.DefaultRequestHeaders.Authorization = null;
+
+		var response = await _httpClient.PostAsync("/auth/local",
+			new StringContent(JsonSerializer.Serialize(enAuthRequest), Encoding.UTF8, "application/json"));
+
+		if (!response.IsSuccessStatusCode) {
+			var content = await response.Content.ReadAsStringAsync();
+			throw new Exception($"Failed to authenticate with Enspace.\nStatusCode: {response.StatusCode}\nReasonPhrase: {response.ReasonPhrase}\nContent: {content}");
+		}
+
 		var result = await response.Content.ReadFromJsonAsync<EnAuthResponse>().ConfigureAwait(false);
-		if (result is null || string.IsNullOrWhiteSpace(result.jwt)) { throw new Exception("Failed to authenticate with Enspace"); }
+		if (result is null || string.IsNullOrWhiteSpace(result.jwt)) {
+			throw new Exception("Failed to authenticate with Enspace");
+		}
 
 		_token = result.jwt;
 		_tokenExpiryTime = DateTime.UtcNow.AddHours(1);
